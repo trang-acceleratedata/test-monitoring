@@ -1,0 +1,12 @@
+testmonitoring:
+  target: dev
+  outputs:
+    dev:
+      type: fabric
+      driver: 'ODBC Driver 18 for SQL Server'
+      server: zcoepygy7vhunaxjs7ut7gix3m-ei4zqyco674efo2gsziuwxjfxu.datawarehouse.fabric.microsoft.com
+      port: 1433
+      database: ai_fork_lake
+      schema: testmonitoring
+      authentication: CLI
+      threads: 4

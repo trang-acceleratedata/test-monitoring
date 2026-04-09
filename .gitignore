@@ -17,3 +17,6 @@ venv/
 # VD Studio
 .claude/
 intent-state.json
+target/
+dbt_packages/
+logs/

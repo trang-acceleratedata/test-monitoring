@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: mart_order_summary
+    description: "Order summary aggregated by status"
+    columns:
+      - name: status
+        tests:
+          - not_null
+          - unique
+      - name: order_count
+        tests:
+          - not_null
+          - elementary.column_anomalies:
+              column_anomalies:
+                - null_count
+      - name: total_amount
+        tests:
+          - not_null
+    tests:
+      - elementary.volume_anomalies:
+          sensitivity: 3

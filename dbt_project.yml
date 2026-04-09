@@ -1,0 +1,29 @@
+name: 'testmonitoring'
+version: '1.0.0'
+config-version: 2
+
+profile: 'testmonitoring'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+analysis-paths: ["analysis"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+on-run-end:
+  - "{{ elementary.upload_dbt_artifacts() }}"
+
+models:
+  testmonitoring:
+    staging:
+      +materialized: view
+      +schema: testmonitoring_staging
+    marts:
+      +materialized: table
+      +schema: testmonitoring_marts
