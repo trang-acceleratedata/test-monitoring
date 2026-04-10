@@ -1,0 +1,37 @@
+id: runbook-dlt-pipeline-restart
+title: Restart Stalled DLT Pipeline
+description: Restarts a DLT pipeline that has entered a FAILED or IDLE state due to a transient infrastructure error or stale compute cluster.
+version: "1.0"
+root_cause_patterns:
+  - dlt pipeline stalled
+  - compute cluster expired
+  - pipeline idle timeout
+  - infrastructure error
+  - executor lost
+  - cluster terminated
+engine_types:
+  - dlt
+preconditions:
+  - ops_dlt_loads shows the latest run with status FAILED or IDLE for more than 20 minutes
+  - Error type is infrastructure-related (not data quality or expectation violation)
+  - No upstream source failures are active
+steps:
+  - action: stop_pipeline
+    description: Stop the current DLT pipeline execution if still running
+    params:
+      force: false
+  - action: wait
+    description: Wait 60 seconds for clean shutdown
+    params:
+      wait_seconds: 60
+  - action: trigger_pipeline
+    description: Start the DLT pipeline
+    params:
+      full_refresh: false
+post_conditions:
+  - ops_dlt_loads shows a new run entry with status RUNNING within 5 minutes
+  - No new FAILED status within 10 minutes of restart
+rollback:
+  - If restart fails, do not retry automatically
+  - Escalate to DRE with pipeline ID and both run IDs for manual investigation
+notes: Do not use full_refresh unless explicitly requested by DRE — full refresh on large tables can cause extended downtime.
