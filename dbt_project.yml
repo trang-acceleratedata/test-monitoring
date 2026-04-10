@@ -23,7 +23,5 @@ models:
   testmonitoring:
     staging:
       +materialized: view
-      +schema: testmonitoring_staging
     marts:
       +materialized: table
-      +schema: testmonitoring_marts
