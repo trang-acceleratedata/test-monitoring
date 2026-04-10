@@ -1,0 +1,33 @@
+id: runbook-dbt-retry
+title: Retry Failed dbt Run
+description: Retries a failed dbt pipeline run when the failure is due to a transient error (network timeout, temporary source unavailability, or lock contention) rather than a logic error.
+version: "1.0"
+root_cause_patterns:
+  - transient network error
+  - connection timeout
+  - database lock
+  - temporary unavailability
+  - socket timeout
+engine_types:
+  - dbt
+preconditions:
+  - The failed run's error_message contains a transient error pattern (not a model compilation error)
+  - No schema changes were deployed in the last 24 hours
+  - The source tables are accessible (no ongoing upstream failures)
+steps:
+  - action: trigger_pipeline
+    description: Re-trigger the Fabric pipeline containing the dbt run
+    params:
+      retry_type: full_run
+      wait_for_completion: false
+  - action: monitor_status
+    description: Check pipeline status after 5 minutes
+    params:
+      check_interval_seconds: 300
+post_conditions:
+  - Pipeline status is RUNNING or SUCCEEDED within 10 minutes of trigger
+  - ops_dbt_runs shows a new run entry for the artifact
+rollback:
+  - No rollback required — retry is non-destructive
+  - If retry also fails, escalate to DRE with both run IDs
+notes: Only use for transient failures. Do not use if error_message indicates a model logic error, schema mismatch, or compilation failure.
