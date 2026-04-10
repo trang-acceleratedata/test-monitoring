@@ -1,0 +1,10 @@
+# Auto-Remediation Registry
+# Lists runbook IDs approved for autonomous L1 execution.
+# Runbooks NOT in this list will only be used for L2 fix proposals.
+# Add a runbook here only after it has been manually reviewed and tested.
+version: "1.0"
+runbooks:
+  - runbook-dbt-retry
+  - runbook-capacity-scale-up
+# runbook-dlt-pipeline-restart is advisory only (L2) — restart logic
+# requires human judgement on whether full_refresh is needed.
