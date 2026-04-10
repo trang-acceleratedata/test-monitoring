@@ -4,7 +4,7 @@ testmonitoring:
     dev:
       type: fabricspark
       method: livy
-      authentication: az_cli
+      authentication: cli
       workspaceid: "60983922-f74e-42f8-bb46-96514b5d25bd"
       workspace_name: "ai_pro_wp"
       lakehouseid: "fb8d20b6-ffa8-4b1d-9663-bea2b18876c0"
