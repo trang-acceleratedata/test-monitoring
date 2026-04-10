@@ -2,11 +2,18 @@ testmonitoring:
   target: dev
   outputs:
     dev:
-      type: fabric
-      driver: 'ODBC Driver 18 for SQL Server'
-      server: zcoepygy7vhunaxjs7ut7gix3m-ei4zqyco674efo2gsziuwxjfxu.datawarehouse.fabric.microsoft.com
-      port: 1433
-      database: ai_fork_lake
+      type: fabricspark
+      method: livy
+      authentication: az_cli
+      workspaceid: "60983922-f74e-42f8-bb46-96514b5d25bd"
+      workspace_name: "ai_pro_wp"
+      lakehouseid: "fb8d20b6-ffa8-4b1d-9663-bea2b18876c0"
+      lakehouse: "ai_fork_lake"
+      database: "ai_fork_lake"
       schema: testmonitoring
-      authentication: CLI
+      lakehouse_schemas_enabled: true
       threads: 4
+      connect_retries: 3
+      connect_timeout: 30
+      spark_config:
+        name: "testmonitoring-dbt"
