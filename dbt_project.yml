@@ -16,12 +16,11 @@ clean-targets:
   - "dbt_packages"
   - "logs"
 
-on-run-end:
-  - "{{ elementary.upload_dbt_artifacts() }}"
-
 models:
   testmonitoring:
     staging:
       +materialized: view
     marts:
       +materialized: table
+  elementary:
+    +schema: elementary
