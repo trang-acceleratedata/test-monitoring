@@ -1,0 +1,39 @@
+id: runbook-capacity-scale-up
+title: Scale Up Fabric Capacity
+description: Scales the Fabric capacity SKU up by one tier when sustained utilisation exceeds 80% and is causing pipeline failures or throttling.
+version: "1.0"
+root_cause_patterns:
+  - capacity throttling
+  - sku exhaustion
+  - utilization above 80
+  - throttled_seconds high
+  - capacity limit reached
+engine_types:
+  - dbt
+  - dlt
+  - capacity
+preconditions:
+  - ops_capacity_metrics shows utilization_pct > 80 for the last 30 minutes
+  - Current SKU is not already at maximum tier
+  - No scheduled maintenance window is active
+steps:
+  - action: scale_capacity
+    description: Scale Fabric capacity up by one SKU tier
+    params:
+      scale_direction: up
+      tiers: 1
+  - action: wait
+    description: Wait 5 minutes for scaling to take effect
+    params:
+      wait_seconds: 300
+  - action: verify_capacity
+    description: Confirm utilisation dropped below 70%
+    params:
+      threshold_pct: 70
+post_conditions:
+  - ops_capacity_metrics shows utilization_pct < 70 within 10 minutes
+  - Throttled pipelines resume execution
+rollback:
+  - Scale capacity back down to original tier
+  - Alert cost team if scale-up is sustained beyond 24 hours
+notes: Scaling up increases cost. Flag to team lead if this runbook executes more than 3 times in 7 days — may indicate need for permanent SKU upgrade or workload redistribution.
