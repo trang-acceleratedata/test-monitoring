@@ -1,0 +1,49 @@
+id: runbook-spark-config-tune
+title: Spark Executor OOM — Config Tune and Retry
+description: Resolves Spark executor out-of-memory (OOM) failures by applying increased shuffle partitions and memory overhead to the Fabric Spark environment, then re-triggering the failed pipeline.
+version: "1.0"
+root_cause_patterns:
+  - OOM
+  - out of memory
+  - executor memory
+  - SparkException executor
+  - java heap space
+  - GC overhead limit
+  - shuffle partitions
+  - memoryOverhead
+engine_types:
+  - dbt
+preconditions:
+  - The failed run's error_message contains an OOM or memory-related pattern
+  - Fabric Spark environment ID is known (from domain config or pipeline metadata)
+  - No concurrent large jobs are running on the same environment
+steps:
+  - action: apply_spark_config
+    description: Stage and publish increased shuffle partitions and memory overhead via fabric_spark_config (two internal API calls — stage then publish)
+    params:
+      tool: fabric_spark_config
+      config:
+        spark.sql.shuffle.partitions: "400"
+        spark.executor.memoryOverhead: "1024m"
+        spark.memory.fraction: "0.8"
+      note: Both staging and publish calls are handled internally by fabric_spark_config
+  - action: trigger_pipeline
+    description: Re-trigger the failed dbt pipeline via fabric_pipeline_trigger
+    params:
+      tool: fabric_pipeline_trigger
+      wait_for_completion: false
+  - action: verify
+    description: Check ops_dbt_runs for status = success — confirm no new OOM in error_message
+    params:
+      tool: lakehouse_query
+      check_field: status
+      expected_value: success
+      timeout_minutes: 30
+post_conditions:
+  - ops_dbt_runs shows status = success for the artifact after the re-trigger
+  - error_message does not contain OOM or executor memory patterns
+rollback:
+  - If the new config also fails with OOM, the original config was insufficient — escalate to DRE for manual Spark tuning
+  - Config changes are persistent on the environment; DRE should review and potentially revert if not appropriate for all workloads
+notes: Increasing shuffle partitions and memoryOverhead will increase the per-job CU cost. Monitor ops_capacity_metrics after the fix to ensure it doesn't push capacity above 80%.
+max_executions_per_hour: 2
