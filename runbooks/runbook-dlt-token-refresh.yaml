@@ -1,0 +1,44 @@
+id: runbook-dlt-token-refresh
+title: dlt Source API Token Refresh
+description: Refresh or rotate an expired OAuth/API token for a dlt pipeline source. Applicable when HTTP 401/403 errors indicate credential expiry. After rotation, re-triggers the pipeline and any downstream dbt models in topological order.
+version: "1.0"
+root_cause_patterns:
+  - 401 unauthorized
+  - 403 forbidden
+  - token expired
+  - oauth expired
+  - auth failure
+  - credential expired
+  - HTTP 401
+  - HTTP 403
+engine_types:
+  - dlt
+preconditions:
+  - Pipeline is not currently in a running state
+  - The failing source resource is identifiable from the alert payload
+steps:
+  - action: rotate_secret
+    description: Write the new OAuth token to Azure Key Vault using keyvault_rotate_secret
+    params:
+      tool: keyvault_rotate_secret
+      note: secretName and vaultName must be known from domain config or pipeline metadata
+  - action: trigger_pipeline
+    description: Re-trigger the dlt pipeline with refreshed credentials via fabric_pipeline_trigger
+    params:
+      tool: fabric_pipeline_trigger
+      wait_for_completion: false
+  - action: verify
+    description: Check lakehouse_query for load_state = completed within 15 minutes
+    params:
+      tool: lakehouse_query
+      check_field: load_state
+      expected_value: completed
+      timeout_minutes: 15
+post_conditions:
+  - ops_dlt_loads shows load_state = completed for the artifact after the re-trigger
+  - No new 401/403 error in the most recent load record
+rollback:
+  - Original pipeline state is preserved — safe to retry with original token if rotation fails
+  - If the new token also fails, escalate to DRE with both old and new token version IDs
+notes: For cascading failures (C1-type), after the dlt load completes, trigger downstream dbt models in topological order via separate fabric_pipeline_trigger calls.
+max_executions_per_hour: 3
