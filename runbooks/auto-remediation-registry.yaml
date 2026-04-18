@@ -6,5 +6,9 @@ version: "1.0"
 runbooks:
   - runbook-dbt-retry
   - runbook-capacity-scale-up
+  - runbook-dlt-token-refresh
+  - runbook-dlt-rate-limit-backoff-retry
+  - runbook-spark-config-tune
+  - runbook-capacity-retry-storm-reset
 # runbook-dlt-pipeline-restart is advisory only (L2) — restart logic
 # requires human judgement on whether full_refresh is needed.
