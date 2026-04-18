@@ -1,0 +1,43 @@
+id: runbook-dlt-rate-limit-backoff-retry
+title: dlt API Rate Limit Backoff and Retry
+description: Handles HTTP 429 TooManyRequests errors from dlt pipeline source APIs. Waits for the backoff period indicated by the Retry-After header (or a default 300s), then re-triggers the pipeline.
+version: "1.0"
+root_cause_patterns:
+  - 429 TooManyRequests
+  - HTTP 429
+  - rate limit
+  - rate limited
+  - too many requests
+  - API quota exceeded
+engine_types:
+  - dlt
+preconditions:
+  - Pipeline is not currently running
+  - Error message contains HTTP 429 or rate limit indication
+  - No upstream capacity issue is active (check ops_capacity_metrics)
+steps:
+  - action: wait
+    description: Wait for the backoff period — use Retry-After value from error message if available, otherwise 300 seconds
+    params:
+      default_wait_seconds: 300
+      note: Check failed_message in lakehouse_query result for Retry-After header value
+  - action: trigger_pipeline
+    description: Re-trigger the dlt pipeline via fabric_pipeline_trigger
+    params:
+      tool: fabric_pipeline_trigger
+      wait_for_completion: false
+  - action: verify
+    description: Check lakehouse_query for load_state = completed
+    params:
+      tool: lakehouse_query
+      check_field: load_state
+      expected_value: completed
+      timeout_minutes: 30
+post_conditions:
+  - ops_dlt_loads shows load_state = completed for the artifact after the re-trigger
+  - No new 429 error in the most recent load record
+rollback:
+  - No destructive actions taken — safe to retry
+  - If second attempt also hits 429, double the backoff period and retry once more before escalating
+notes: If retry_count in the failed load record is already > 10, escalate to DRE — the source may have a sustained quota issue requiring API plan upgrade.
+max_executions_per_hour: 3
