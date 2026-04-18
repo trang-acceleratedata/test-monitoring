@@ -1,0 +1,61 @@
+id: runbook-capacity-retry-storm-reset
+title: Capacity Retry Storm — Disable and Reset
+description: Stops a retry storm caused by a single pipeline exhausting Fabric capacity via rapid re-attempts. Disables the offending pipeline schedule, performs a capacity suspend/resume cycle to flush the job queue, verifies CU utilization drops below 100%, then re-enables and re-triggers a single controlled run.
+version: "1.0"
+root_cause_patterns:
+  - retry storm
+  - 430 TooManyRequestsForCapacity
+  - capacity exhausted
+  - CU spike
+  - BackgroundCUPercentage above 300
+  - rejection_phase
+  - HTTP 430
+engine_types:
+  - dbt
+  - dlt
+  - capacity
+preconditions:
+  - Retry storm confirmed — single applicationId driving the CU spike (from azure_monitor_query showing BackgroundCUPercentage > 200 with one offending_application_id)
+  - Offending pipeline workspace ID and item ID are known
+preconditions_warning: "fabric_pipeline_disable only stops SCHEDULED triggers. If the pipeline is activator-triggered (event-driven), the activator must also be disabled separately — check pipeline metadata before proceeding."
+steps:
+  - action: disable_pipeline
+    description: Disable the offending pipeline's scheduled runs via fabric_pipeline_disable to stop the retry loop
+    params:
+      tool: fabric_pipeline_disable
+      note: This stops scheduled retries only. Activator-triggered pipelines need the activator disabled separately.
+  - action: suspend_capacity
+    description: Suspend Fabric capacity via fabric_capacity_suspend to flush the in-flight job queue. Polls until state is Paused (up to 5 minutes).
+    params:
+      tool: fabric_capacity_suspend
+  - action: wait_cooldown
+    description: Wait 300 seconds minimum cooldown after suspend before resuming — allows the job queue to fully drain
+    params:
+      wait_seconds: 300
+  - action: resume_capacity
+    description: Resume Fabric capacity via fabric_capacity_resume. Polls until state is Active (up to 5 minutes).
+    params:
+      tool: fabric_capacity_resume
+  - action: verify_cu
+    description: Query azure_monitor_query for BackgroundCUPercentage — confirm it has dropped below 100%
+    params:
+      tool: azure_monitor_query
+      metric: BackgroundCUPercentage
+      threshold: 100
+  - action: enable_pipeline
+    description: Re-enable the pipeline's scheduled runs via fabric_pipeline_enable
+    params:
+      tool: fabric_pipeline_enable
+  - action: trigger_controlled_run
+    description: Trigger a single controlled run via fabric_pipeline_trigger to confirm recovery
+    params:
+      tool: fabric_pipeline_trigger
+      note: Only trigger one run — do not re-enable auto-retry until the controlled run completes successfully
+post_conditions:
+  - azure_monitor_query shows BackgroundCUPercentage < 100 after capacity resume
+  - The controlled pipeline run completes without 430 error
+rollback:
+  - If capacity suspend/resume causes data loss risk (ongoing writes), re-enable the pipeline immediately and escalate to DRE
+  - If CU does not drop below 100% after resume, do not re-enable the pipeline — escalate to DRE for manual investigation
+notes: This runbook has a 1-per-hour rate limit to prevent cascading suspend/resume cycles. The cooldown step is non-negotiable — omitting it risks the same retry storm resuming immediately after capacity comes back up.
+max_executions_per_hour: 1
