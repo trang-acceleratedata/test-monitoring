@@ -5,9 +5,14 @@ version: "1.0"
 root_cause_patterns:
   - capacity throttling
   - sku exhaustion
+  - resource exhaustion
+  - capacity exhausted
+  - capacity overwhelmed
   - utilization above 80
   - throttled_seconds high
   - capacity limit reached
+  - f4 capacity
+  - f8 capacity
 engine_types:
   - dbt
   - dlt
